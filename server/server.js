@@ -5,10 +5,12 @@ import { randomUUID } from "node:crypto";
 import { Server } from "socket.io";
 
 const PORT = process.env.PORT || 4000;
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 
 const app = express();
-app.use(cors({ origin: CLIENT_ORIGIN }));
+
+// Demo 阶段先允许所有来源连接，方便 Railway 前端访问后端
+app.use(cors({ origin: "*" }));
+
 app.get("/", (_, res) => {
   res.json({
     ok: true,
@@ -18,9 +20,10 @@ app.get("/", (_, res) => {
 });
 
 const httpServer = createServer(app);
+
 const io = new Server(httpServer, {
   cors: {
-    origin: CLIENT_ORIGIN,
+    origin: "*",
     methods: ["GET", "POST"]
   }
 });
@@ -104,6 +107,7 @@ function emitState() {
 function addSystemMessage(conversationId, text) {
   const conversation = state.conversations.find((item) => item.id === conversationId);
   if (!conversation) return;
+
   conversation.messages.push({
     id: randomUUID(),
     sender: "system",
@@ -115,6 +119,7 @@ function addSystemMessage(conversationId, text) {
 
 function ensureUserInState(user) {
   const index = state.users.findIndex((item) => item.id === user.id);
+
   if (index >= 0) {
     state.users[index] = user;
   } else {
@@ -125,6 +130,7 @@ function ensureUserInState(user) {
 function addUserToDefaultGroup(user) {
   const group = state.conversations.find((item) => item.id === "g1");
   if (!group) return;
+
   if (!group.memberIds.includes(user.id)) {
     group.memberIds.push(user.id);
     group.unreadByUser[user.id] = 0;
@@ -134,6 +140,7 @@ function addUserToDefaultGroup(user) {
 
 function createBotUser() {
   const n = state.users.filter((user) => user.id.startsWith("bot_")).length + 1;
+
   const bot = {
     id: `bot_${randomUUID()}`,
     name: `演示联系人 ${n}`,
@@ -141,6 +148,7 @@ function createBotUser() {
     status: "online",
     bio: "服务器生成的演示私聊对象"
   };
+
   state.users.push(bot);
   return bot;
 }
@@ -150,6 +158,7 @@ function requireLogin(socket) {
     socket.emit("error_message", "你还没有登录。");
     return false;
   }
+
   return true;
 }
 
@@ -158,6 +167,7 @@ io.on("connection", (socket) => {
 
   socket.on("login", ({ name }) => {
     const displayName = String(name || "匿名用户").trim().slice(0, 20) || "匿名用户";
+
     const user = {
       id: `real_${socket.id}`,
       name: displayName,
@@ -183,19 +193,23 @@ io.on("connection", (socket) => {
 
   socket.on("logout", () => {
     const user = connectedUsers.get(socket.id);
+
     if (user) {
       user.status = "offline";
       ensureUserInState(user);
       connectedUsers.delete(socket.id);
       emitState();
     }
+
     socket.data.userId = null;
   });
 
   socket.on("mark_read", ({ conversationId }) => {
     if (!requireLogin(socket)) return;
+
     const conversation = state.conversations.find((item) => item.id === conversationId);
     if (!conversation) return;
+
     conversation.unreadByUser[socket.data.userId] = 0;
     socket.emit("chat_state", state);
   });
@@ -207,6 +221,7 @@ io.on("connection", (socket) => {
     if (!cleanText) return;
 
     const conversation = state.conversations.find((item) => item.id === conversationId);
+
     if (!conversation) {
       socket.emit("error_message", "会话不存在。");
       return;
@@ -235,6 +250,7 @@ io.on("connection", (socket) => {
 
     if (conversation.type === "private") {
       const botId = conversation.memberIds.find((id) => id.startsWith("bot_"));
+
       if (botId) {
         setTimeout(() => {
           conversation.messages.push({
@@ -244,8 +260,10 @@ io.on("connection", (socket) => {
             time: nowLabel(),
             status: "delivered"
           });
+
           conversation.unreadByUser[socket.data.userId] =
             (conversation.unreadByUser[socket.data.userId] || 0) + 1;
+
           emitState();
         }, 700);
       }
@@ -256,6 +274,7 @@ io.on("connection", (socket) => {
     if (!requireLogin(socket)) return;
 
     const bot = createBotUser();
+
     const conversation = {
       id: `p_${randomUUID()}`,
       type: "private",
@@ -277,7 +296,11 @@ io.on("connection", (socket) => {
     };
 
     state.conversations.unshift(conversation);
-    socket.emit("conversation_created", { conversationId: conversation.id });
+
+    socket.emit("conversation_created", {
+      conversationId: conversation.id
+    });
+
     emitState();
   });
 
@@ -285,16 +308,23 @@ io.on("connection", (socket) => {
     if (!requireLogin(socket)) return;
 
     const allRealUserIds = [...connectedUsers.values()].map((user) => user.id);
-    const memberIds = Array.from(new Set([socket.data.userId, ...allRealUserIds, "u1", "u2", "u4"]));
+
+    const memberIds = Array.from(
+      new Set([socket.data.userId, ...allRealUserIds, "u1", "u2", "u4"])
+    );
 
     const unreadByUser = {};
-    for (const id of memberIds) unreadByUser[id] = 0;
+    for (const id of memberIds) {
+      unreadByUser[id] = 0;
+    }
 
     const conversation = {
       id: `g_${randomUUID()}`,
       type: "group",
       title: String(title || "新建群聊").trim().slice(0, 30) || "新建群聊",
-      description: String(description || "这是一个通过 Socket.IO 创建的联网群聊").trim().slice(0, 80),
+      description: String(description || "这是一个通过 Socket.IO 创建的联网群聊")
+        .trim()
+        .slice(0, 80),
       ownerId: socket.data.userId,
       memberIds,
       unreadByUser,
@@ -311,7 +341,11 @@ io.on("connection", (socket) => {
     };
 
     state.conversations.unshift(conversation);
-    socket.emit("conversation_created", { conversationId: conversation.id });
+
+    socket.emit("conversation_created", {
+      conversationId: conversation.id
+    });
+
     emitState();
   });
 
@@ -322,14 +356,17 @@ io.on("connection", (socket) => {
     if (!conversation || conversation.type !== "group") return;
 
     const available = state.users.filter((user) => !conversation.memberIds.includes(user.id));
+
     if (available.length === 0) {
       socket.emit("error_message", "没有可添加的演示成员了。");
       return;
     }
 
     const newMember = available[Math.floor(Math.random() * available.length)];
+
     conversation.memberIds.push(newMember.id);
     conversation.unreadByUser[newMember.id] = 0;
+
     addSystemMessage(conversation.id, `${newMember.name} 加入了群聊`);
     emitState();
   });
@@ -348,6 +385,7 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     const user = connectedUsers.get(socket.id);
+
     if (user) {
       user.status = "offline";
       ensureUserInState(user);
@@ -358,6 +396,6 @@ io.on("connection", (socket) => {
 });
 
 httpServer.listen(PORT, () => {
-  console.log(`MiniChat server running at http://localhost:${PORT}`);
-  console.log(`Allowed client origin: ${CLIENT_ORIGIN}`);
+  console.log(`MiniChat server running on port ${PORT}`);
+  console.log("Allowed client origin: *");
 });
