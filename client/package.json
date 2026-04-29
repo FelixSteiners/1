@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "start": "npm run build && serve -s dist -l tcp://0.0.0.0:$PORT"
+    "start": "serve -s dist -l tcp://0.0.0.0:$PORT",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.2.1",
