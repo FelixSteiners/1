@@ -1,92 +1,67 @@
-# MiniChat Online
+# MiniChat：真实登录 + 图片版
 
-一个最小可运行的联网聊天软件 Demo，支持：
+完成的功能：
 
-- Socket.IO 实时通信
-- 多浏览器窗口同步消息
-- 群聊
-- 私聊
-- 未读数
-- 群成员列表
-- 创建群聊 / 创建私聊
-- 服务器端内存保存聊天状态
+- 删除所有测试消息
+- 删除所有假用户作为初始用户
+- 默认只有一个空的“公共聊天室”
+- 昵称唯一
+- 首次使用昵称时，输入的密码会初始化为该昵称的密码
+- 以后同一昵称必须输入相同密码登录
+- 支持文字消息
+- 支持图片消息
+- 支持创建群聊
+- 支持按已注册昵称创建私聊
 
-> 注意：这是学习版 Demo。服务器重启后消息会丢失。真正上线时应该接 PostgreSQL / MySQL / MongoDB 保存数据。
+注意：当前账号、密码哈希、消息仍保存在服务器内存中。服务器重启后会清空。要正式使用，下一步需要接数据库。
 
-## 运行方法
+## Railway 设置
 
-进入项目目录：
-
-```bash
-cd minichat-online
-```
-
-安装前后端依赖：
-
-```bash
-npm run install:all
-```
-
-启动后端：
-
-```bash
-npm run dev:server
-```
-
-再开一个终端，启动前端：
-
-```bash
-npm run dev:client
-```
-
-打开浏览器：
+后端 service Root Directory：
 
 ```text
-http://localhost:5173
+server
 ```
 
-## 怎么测试联网
-
-1. 打开两个浏览器窗口。
-2. 分别输入不同昵称，例如 Felix 和 Alice。
-3. 都进入“课程项目群”。
-4. 一个窗口发消息，另一个窗口会实时收到。
-
-## 如果想让同一个局域网的另一台设备访问
-
-前端 Vite 默认已经使用：
-
-```bash
-vite --host 0.0.0.0
-```
-
-你还需要：
-
-1. 找到运行后端电脑的局域网 IP，例如 `192.168.1.23`。
-2. 启动前端时指定后端地址：
-
-```bash
-VITE_SOCKET_URL=http://192.168.1.23:4000 npm run dev:client
-```
-
-Windows PowerShell 可以用：
-
-```powershell
-$env:VITE_SOCKET_URL="http://192.168.1.23:4000"; npm run dev:client
-```
-
-然后其他设备访问：
+前端 service Root Directory：
 
 ```text
-http://192.168.1.23:5173
+client
 ```
 
-## 下一步可以升级什么
+前端 Variables：
 
-- 接数据库，保存历史消息
-- 做注册登录和密码认证
-- 做真正的好友系统
-- 做图片/文件上传
-- 做离线推送
-- 做消息撤回、已读回执
-- 做部署上线
+```text
+VITE_SOCKET_URL=https://你的后端域名
+```
+
+例如：
+
+```text
+VITE_SOCKET_URL=https://1-production-1558.up.railway.app
+```
+
+## 替换现有项目
+
+把压缩包里的这些文件替换进你现在的仓库：
+
+```text
+server/server.js
+client/src/App.jsx
+client/src/index.css
+client/package.json
+client/vite.config.js
+```
+
+然后本地执行：
+
+```bash
+cd client
+npm install
+cd ..
+git add .
+git commit -m "add auth and image messages"
+git push
+```
+
+Railway 重新部署 server 和 client。

@@ -1,156 +1,105 @@
 import express from "express";
 import cors from "cors";
 import { createServer } from "node:http";
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes, pbkdf2Sync } from "node:crypto";
 import { Server } from "socket.io";
 
 const PORT = process.env.PORT || 4000;
 
 const app = express();
-
-// Demo 阶段先允许所有来源连接，方便 Railway 前端访问后端
 app.use(cors({ origin: "*" }));
 
 app.get("/", (_, res) => {
   res.json({
     ok: true,
-    name: "MiniChat Online Server",
-    message: "Socket.IO server is running."
+    name: "MiniChat Server",
+    message: "MiniChat server is running.",
+    features: ["unique nickname", "password login", "text", "image"]
   });
 });
 
 const httpServer = createServer(app);
-
 const io = new Server(httpServer, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+  cors: { origin: "*", methods: ["GET", "POST"] },
+  maxHttpBufferSize: 5 * 1024 * 1024
 });
 
-const connectedUsers = new Map();
+const accounts = new Map();
+const connectedSockets = new Map();
 
-const demoUsers = [
-  { id: "u1", name: "林同学", avatar: "林", status: "online", bio: "正在学习高数" },
-  { id: "u2", name: "王助教", avatar: "王", status: "online", bio: "课程助教" },
-  { id: "u3", name: "陈同学", avatar: "陈", status: "offline", bio: "项目小组成员" },
-  { id: "u4", name: "赵同学", avatar: "赵", status: "online", bio: "负责前端页面" },
-  { id: "u5", name: "刘同学", avatar: "刘", status: "offline", bio: "负责数据库设计" }
-];
+let state = {
+  users: [],
+  conversations: [
+    {
+      id: "public",
+      type: "group",
+      title: "公共聊天室",
+      description: "无测试消息，无假用户；登录用户会自动加入。",
+      ownerId: null,
+      memberIds: [],
+      unreadByUser: {},
+      pinned: true,
+      messages: []
+    }
+  ]
+};
 
 function nowLabel() {
   const now = new Date();
-  const h = String(now.getHours()).padStart(2, "0");
-  const m = String(now.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
-function makeInitialState() {
+function normalizeName(name) {
+  return String(name || "").trim().slice(0, 20);
+}
+
+function avatarOf(name) {
+  return name.slice(0, 1).toUpperCase();
+}
+
+function hashPassword(password, salt) {
+  return pbkdf2Sync(String(password), salt, 100000, 64, "sha512").toString("hex");
+}
+
+function makePassword(password) {
+  const salt = randomBytes(16).toString("hex");
+  return { salt, hash: hashPassword(password, salt) };
+}
+
+function checkPassword(password, record) {
+  return record && hashPassword(password, record.salt) === record.hash;
+}
+
+function publicUser(account) {
   return {
-    users: [...demoUsers],
-    conversations: [
-      {
-        id: "g1",
-        type: "group",
-        title: "课程项目群",
-        description: "Socket.IO 联网群聊演示。多个浏览器窗口登录不同名字即可实时聊天。",
-        ownerId: "u2",
-        memberIds: ["u1", "u2", "u3", "u4", "u5"],
-        unreadByUser: {},
-        pinned: true,
-        messages: [
-          {
-            id: randomUUID(),
-            sender: "u2",
-            text: "大家先把联网功能跑起来：一个终端开 server，一个终端开 client。",
-            time: "系统初始化",
-            status: "delivered"
-          },
-          {
-            id: randomUUID(),
-            sender: "u4",
-            text: "前端通过 socket.emit 发送消息，通过 socket.on 接收服务器广播。",
-            time: "系统初始化",
-            status: "delivered"
-          }
-        ]
-      },
-      {
-        id: "g2",
-        type: "group",
-        title: "宿舍闲聊群",
-        description: "另一个群聊，用来测试多个会话。",
-        ownerId: "u3",
-        memberIds: ["u1", "u3", "u4"],
-        unreadByUser: {},
-        pinned: false,
-        messages: [
-          {
-            id: randomUUID(),
-            sender: "u3",
-            text: "晚上有人去吃夜宵吗？",
-            time: "系统初始化",
-            status: "delivered"
-          }
-        ]
-      }
-    ]
+    id: account.id,
+    name: account.name,
+    avatar: account.avatar,
+    status: account.status,
+    bio: "真实用户"
   };
 }
 
-let state = makeInitialState();
+function upsertUser(user) {
+  const idx = state.users.findIndex((item) => item.id === user.id);
+  if (idx >= 0) state.users[idx] = user;
+  else state.users.push(user);
+}
+
+function room() {
+  return state.conversations.find((c) => c.id === "public");
+}
+
+function addUserToPublicRoom(user) {
+  const publicRoom = room();
+  if (!publicRoom.memberIds.includes(user.id)) {
+    publicRoom.memberIds.push(user.id);
+    publicRoom.unreadByUser[user.id] = 0;
+  }
+}
 
 function emitState() {
   io.emit("chat_state", state);
-}
-
-function addSystemMessage(conversationId, text) {
-  const conversation = state.conversations.find((item) => item.id === conversationId);
-  if (!conversation) return;
-
-  conversation.messages.push({
-    id: randomUUID(),
-    sender: "system",
-    text,
-    time: nowLabel(),
-    status: "system"
-  });
-}
-
-function ensureUserInState(user) {
-  const index = state.users.findIndex((item) => item.id === user.id);
-
-  if (index >= 0) {
-    state.users[index] = user;
-  } else {
-    state.users.push(user);
-  }
-}
-
-function addUserToDefaultGroup(user) {
-  const group = state.conversations.find((item) => item.id === "g1");
-  if (!group) return;
-
-  if (!group.memberIds.includes(user.id)) {
-    group.memberIds.push(user.id);
-    group.unreadByUser[user.id] = 0;
-    addSystemMessage(group.id, `${user.name} 加入了群聊`);
-  }
-}
-
-function createBotUser() {
-  const n = state.users.filter((user) => user.id.startsWith("bot_")).length + 1;
-
-  const bot = {
-    id: `bot_${randomUUID()}`,
-    name: `演示联系人 ${n}`,
-    avatar: String(n),
-    status: "online",
-    bio: "服务器生成的演示私聊对象"
-  };
-
-  state.users.push(bot);
-  return bot;
 }
 
 function requireLogin(socket) {
@@ -158,58 +107,100 @@ function requireLogin(socket) {
     socket.emit("error_message", "你还没有登录。");
     return false;
   }
-
   return true;
+}
+
+function addUnread(conversation, senderId) {
+  for (const memberId of conversation.memberIds) {
+    if (memberId !== senderId) {
+      conversation.unreadByUser[memberId] = (conversation.unreadByUser[memberId] || 0) + 1;
+    }
+  }
+}
+
+function validImage(dataUrl) {
+  if (typeof dataUrl !== "string") return false;
+  if (dataUrl.length > 4 * 1024 * 1024) return false;
+  return (
+    dataUrl.startsWith("data:image/png;base64,") ||
+    dataUrl.startsWith("data:image/jpeg;base64,") ||
+    dataUrl.startsWith("data:image/jpg;base64,") ||
+    dataUrl.startsWith("data:image/gif;base64,") ||
+    dataUrl.startsWith("data:image/webp;base64,")
+  );
+}
+
+function setOfflineIfNeeded(userId) {
+  const stillOnline = [...connectedSockets.values()].some((user) => user.id === userId);
+  if (stillOnline) return;
+  const account = [...accounts.values()].find((item) => item.id === userId);
+  if (!account) return;
+  account.status = "offline";
+  upsertUser(publicUser(account));
 }
 
 io.on("connection", (socket) => {
   socket.emit("chat_state", state);
 
-  socket.on("login", ({ name }) => {
-    const displayName = String(name || "匿名用户").trim().slice(0, 20) || "匿名用户";
+  socket.on("login", ({ name, password }) => {
+    const nickname = normalizeName(name);
+    const rawPassword = String(password || "");
 
-    const user = {
-      id: `real_${socket.id}`,
-      name: displayName,
-      avatar: displayName.slice(0, 1).toUpperCase(),
-      status: "online",
-      bio: "真实联网用户"
-    };
+    if (!nickname) {
+      socket.emit("login_error", "昵称不能为空。");
+      return;
+    }
 
-    socket.data.userId = user.id;
-    socket.data.name = user.name;
-    connectedUsers.set(socket.id, user);
+    if (rawPassword.length < 4 || rawPassword.length > 40) {
+      socket.emit("login_error", "密码长度需要在 4 到 40 位之间。");
+      return;
+    }
 
-    ensureUserInState(user);
-    addUserToDefaultGroup(user);
+    let account = accounts.get(nickname);
 
-    socket.emit("login_success", {
-      currentUser: user,
-      state
-    });
+    if (!account) {
+      account = {
+        id: `user_${randomUUID()}`,
+        name: nickname,
+        avatar: avatarOf(nickname),
+        status: "online",
+        password: makePassword(rawPassword)
+      };
+      accounts.set(nickname, account);
+    } else {
+      if (!checkPassword(rawPassword, account.password)) {
+        socket.emit("login_error", "密码错误。这个昵称已被注册，请输入第一次使用该昵称时设置的密码。");
+        return;
+      }
+      account.status = "online";
+    }
 
+    socket.data.userId = account.id;
+    socket.data.name = account.name;
+    connectedSockets.set(socket.id, publicUser(account));
+
+    const user = publicUser(account);
+    upsertUser(user);
+    addUserToPublicRoom(user);
+
+    socket.emit("login_success", { currentUser: user, state });
     emitState();
   });
 
   socket.on("logout", () => {
-    const user = connectedUsers.get(socket.id);
-
+    const user = connectedSockets.get(socket.id);
     if (user) {
-      user.status = "offline";
-      ensureUserInState(user);
-      connectedUsers.delete(socket.id);
+      connectedSockets.delete(socket.id);
+      setOfflineIfNeeded(user.id);
       emitState();
     }
-
     socket.data.userId = null;
   });
 
   socket.on("mark_read", ({ conversationId }) => {
     if (!requireLogin(socket)) return;
-
     const conversation = state.conversations.find((item) => item.id === conversationId);
-    if (!conversation) return;
-
+    if (!conversation || !conversation.memberIds.includes(socket.data.userId)) return;
     conversation.unreadByUser[socket.data.userId] = 0;
     socket.emit("chat_state", state);
   });
@@ -217,10 +208,8 @@ io.on("connection", (socket) => {
   socket.on("send_message", ({ conversationId, text }) => {
     if (!requireLogin(socket)) return;
 
-    const cleanText = String(text || "").trim();
-    if (!cleanText) return;
-
     const conversation = state.conversations.find((item) => item.id === conversationId);
+    const cleanText = String(text || "").trim().slice(0, 1000);
 
     if (!conversation) {
       socket.emit("error_message", "会话不存在。");
@@ -232,164 +221,181 @@ io.on("connection", (socket) => {
       return;
     }
 
+    if (!cleanText) return;
+
     conversation.messages.push({
       id: randomUUID(),
       sender: socket.data.userId,
-      text: cleanText.slice(0, 1000),
+      type: "text",
+      text: cleanText,
       time: nowLabel(),
       status: "delivered"
     });
 
-    for (const memberId of conversation.memberIds) {
-      if (memberId !== socket.data.userId) {
-        conversation.unreadByUser[memberId] = (conversation.unreadByUser[memberId] || 0) + 1;
-      }
-    }
-
+    addUnread(conversation, socket.data.userId);
     emitState();
-
-    if (conversation.type === "private") {
-      const botId = conversation.memberIds.find((id) => id.startsWith("bot_"));
-
-      if (botId) {
-        setTimeout(() => {
-          conversation.messages.push({
-            id: randomUUID(),
-            sender: botId,
-            text: "收到，这是服务器模拟回复。真正上线时这里会变成对方用户的真实消息。",
-            time: nowLabel(),
-            status: "delivered"
-          });
-
-          conversation.unreadByUser[socket.data.userId] =
-            (conversation.unreadByUser[socket.data.userId] || 0) + 1;
-
-          emitState();
-        }, 700);
-      }
-    }
   });
 
-  socket.on("create_private", () => {
+  socket.on("send_image", ({ conversationId, imageData, fileName }) => {
     if (!requireLogin(socket)) return;
 
-    const bot = createBotUser();
+    const conversation = state.conversations.find((item) => item.id === conversationId);
 
-    const conversation = {
-      id: `p_${randomUUID()}`,
-      type: "private",
-      title: "",
-      description: "联网私聊演示",
-      ownerId: socket.data.userId,
-      memberIds: [socket.data.userId, bot.id],
-      unreadByUser: { [socket.data.userId]: 0 },
-      pinned: false,
-      messages: [
-        {
-          id: randomUUID(),
-          sender: bot.id,
-          text: "你好，这是一个由服务器创建的联网私聊。",
-          time: nowLabel(),
-          status: "delivered"
-        }
-      ]
-    };
+    if (!conversation) {
+      socket.emit("error_message", "会话不存在。");
+      return;
+    }
 
-    state.conversations.unshift(conversation);
+    if (!conversation.memberIds.includes(socket.data.userId)) {
+      socket.emit("error_message", "你不是这个会话的成员，不能发图片。");
+      return;
+    }
 
-    socket.emit("conversation_created", {
-      conversationId: conversation.id
+    if (!validImage(imageData)) {
+      socket.emit("error_message", "图片格式不支持，或图片太大。请上传 4MB 以内的 png、jpg、gif 或 webp。");
+      return;
+    }
+
+    conversation.messages.push({
+      id: randomUUID(),
+      sender: socket.data.userId,
+      type: "image",
+      imageData,
+      fileName: String(fileName || "image").slice(0, 100),
+      time: nowLabel(),
+      status: "delivered"
     });
 
+    addUnread(conversation, socket.data.userId);
     emitState();
   });
 
   socket.on("create_group", ({ title, description }) => {
     if (!requireLogin(socket)) return;
 
-    const allRealUserIds = [...connectedUsers.values()].map((user) => user.id);
+    const groupTitle = String(title || "").trim().slice(0, 30);
 
-    const memberIds = Array.from(
-      new Set([socket.data.userId, ...allRealUserIds, "u1", "u2", "u4"])
-    );
-
-    const unreadByUser = {};
-    for (const id of memberIds) {
-      unreadByUser[id] = 0;
+    if (!groupTitle) {
+      socket.emit("error_message", "群聊名称不能为空。");
+      return;
     }
 
     const conversation = {
-      id: `g_${randomUUID()}`,
+      id: `group_${randomUUID()}`,
       type: "group",
-      title: String(title || "新建群聊").trim().slice(0, 30) || "新建群聊",
-      description: String(description || "这是一个通过 Socket.IO 创建的联网群聊")
-        .trim()
-        .slice(0, 80),
+      title: groupTitle,
+      description: String(description || "用户创建的群聊").trim().slice(0, 80),
       ownerId: socket.data.userId,
-      memberIds,
-      unreadByUser,
+      memberIds: [socket.data.userId],
+      unreadByUser: { [socket.data.userId]: 0 },
       pinned: false,
-      messages: [
-        {
-          id: randomUUID(),
-          sender: "system",
-          text: `${socket.data.name} 创建了群聊`,
-          time: nowLabel(),
-          status: "system"
-        }
-      ]
+      messages: []
     };
 
     state.conversations.unshift(conversation);
-
-    socket.emit("conversation_created", {
-      conversationId: conversation.id
-    });
-
+    socket.emit("conversation_created", { conversationId: conversation.id });
     emitState();
   });
 
-  socket.on("add_random_member", ({ conversationId }) => {
+  socket.on("join_group", ({ conversationId }) => {
     if (!requireLogin(socket)) return;
 
     const conversation = state.conversations.find((item) => item.id === conversationId);
     if (!conversation || conversation.type !== "group") return;
 
-    const available = state.users.filter((user) => !conversation.memberIds.includes(user.id));
+    if (!conversation.memberIds.includes(socket.data.userId)) {
+      conversation.memberIds.push(socket.data.userId);
+      conversation.unreadByUser[socket.data.userId] = 0;
+      conversation.messages.push({
+        id: randomUUID(),
+        sender: "system",
+        type: "system",
+        text: `${socket.data.name} 加入了群聊`,
+        time: nowLabel(),
+        status: "system"
+      });
+      emitState();
+    }
+  });
 
-    if (available.length === 0) {
-      socket.emit("error_message", "没有可添加的演示成员了。");
+  socket.on("create_private", ({ targetName }) => {
+    if (!requireLogin(socket)) return;
+
+    const nickname = normalizeName(targetName);
+    const target = accounts.get(nickname);
+
+    if (!target) {
+      socket.emit("error_message", "这个昵称还没有注册，不能创建私聊。");
       return;
     }
 
-    const newMember = available[Math.floor(Math.random() * available.length)];
+    if (target.id === socket.data.userId) {
+      socket.emit("error_message", "不能和自己创建私聊。");
+      return;
+    }
 
-    conversation.memberIds.push(newMember.id);
-    conversation.unreadByUser[newMember.id] = 0;
+    const existing = state.conversations.find((conversation) => {
+      return (
+        conversation.type === "private" &&
+        conversation.memberIds.includes(socket.data.userId) &&
+        conversation.memberIds.includes(target.id)
+      );
+    });
 
-    addSystemMessage(conversation.id, `${newMember.name} 加入了群聊`);
+    if (existing) {
+      socket.emit("conversation_created", { conversationId: existing.id });
+      return;
+    }
+
+    const conversation = {
+      id: `private_${randomUUID()}`,
+      type: "private",
+      title: "",
+      description: "私聊",
+      ownerId: socket.data.userId,
+      memberIds: [socket.data.userId, target.id],
+      unreadByUser: { [socket.data.userId]: 0, [target.id]: 0 },
+      pinned: false,
+      messages: []
+    };
+
+    state.conversations.unshift(conversation);
+    socket.emit("conversation_created", { conversationId: conversation.id });
     emitState();
   });
 
   socket.on("reset_demo", () => {
-    state = makeInitialState();
+    const onlineUsers = [...connectedSockets.values()];
+    state = {
+      users: [],
+      conversations: [
+        {
+          id: "public",
+          type: "group",
+          title: "公共聊天室",
+          description: "无测试消息，无假用户；登录用户会自动加入。",
+          ownerId: null,
+          memberIds: [],
+          unreadByUser: {},
+          pinned: true,
+          messages: []
+        }
+      ]
+    };
 
-    for (const user of connectedUsers.values()) {
-      user.status = "online";
-      ensureUserInState(user);
-      addUserToDefaultGroup(user);
+    for (const user of onlineUsers) {
+      upsertUser(user);
+      addUserToPublicRoom(user);
     }
 
     emitState();
   });
 
   socket.on("disconnect", () => {
-    const user = connectedUsers.get(socket.id);
-
+    const user = connectedSockets.get(socket.id);
     if (user) {
-      user.status = "offline";
-      ensureUserInState(user);
-      connectedUsers.delete(socket.id);
+      connectedSockets.delete(socket.id);
+      setOfflineIfNeeded(user.id);
       emitState();
     }
   });

@@ -1,26 +1,18 @@
-* {
-  box-sizing: border-box;
-}
-
+* { box-sizing: border-box; }
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
   background: #e5e7eb;
   color: #0f172a;
 }
-
-button, input, textarea {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-}
+button, input, textarea { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: 0.5; }
 
 .app {
   height: 100vh;
   display: grid;
-  grid-template-columns: 340px 1fr 280px;
+  grid-template-columns: 350px 1fr 290px;
   background: white;
 }
 
@@ -34,32 +26,11 @@ button {
   gap: 12px;
 }
 
-.me {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.me-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.me-text span {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  margin-top: 2px;
-}
-
-.ok {
-  color: #059669;
-}
-
-.bad {
-  color: #dc2626;
-}
+.me { display: flex; align-items: center; gap: 12px; }
+.me-text { flex: 1; min-width: 0; }
+.me-text span { display: flex; align-items: center; gap: 4px; font-size: 12px; margin-top: 2px; }
+.ok { color: #059669; }
+.bad { color: #dc2626; }
 
 .avatar {
   position: relative;
@@ -73,7 +44,6 @@ button {
   font-weight: 800;
   flex-shrink: 0;
 }
-
 .online-dot {
   position: absolute;
   width: 12px;
@@ -92,10 +62,7 @@ button {
   height: 38px;
   border-radius: 12px;
 }
-
-.icon-btn:hover {
-  background: #e2e8f0;
-}
+.icon-btn:hover { background: #e2e8f0; }
 
 .error {
   background: #fff1f2;
@@ -105,7 +72,13 @@ button {
   padding: 10px 12px;
   font-size: 13px;
   line-height: 1.5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
+.error.plain { display: block; }
+.error button { border: 0; background: transparent; color: inherit; }
 
 .search {
   display: flex;
@@ -116,7 +89,6 @@ button {
   border-radius: 16px;
   padding: 10px 12px;
 }
-
 .search input {
   width: 100%;
   border: 0;
@@ -132,7 +104,6 @@ button {
   background: #e2e8f0;
   border-radius: 16px;
 }
-
 .filters button {
   border: 0;
   background: transparent;
@@ -141,7 +112,6 @@ button {
   font-weight: 700;
   color: #64748b;
 }
-
 .filters button.active {
   background: white;
   color: #0f172a;
@@ -153,8 +123,7 @@ button {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
-
-.actions button, .reset, .members button {
+.actions button, .reset {
   border: 1px solid #e2e8f0;
   background: white;
   border-radius: 14px;
@@ -165,13 +134,38 @@ button {
   gap: 6px;
   font-weight: 700;
 }
+.reset { width: 100%; }
+
+.mini-panel {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+.mini-panel label { font-size: 13px; font-weight: 800; }
+.mini-panel input {
+  border: 1px solid #e2e8f0;
+  outline: none;
+  border-radius: 12px;
+  padding: 10px;
+}
+.mini-panel-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mini-panel-buttons button {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 8px;
+  background: white;
+  font-weight: 800;
+}
+.mini-panel-buttons button:first-child { background: #0f172a; color: white; }
 
 .conversation-list {
   flex: 1;
   overflow: auto;
   min-height: 0;
 }
-
 .conversation {
   width: 100%;
   border: 0;
@@ -184,40 +178,25 @@ button {
   gap: 10px;
   text-align: left;
 }
-
-.conversation:hover {
-  background: #f1f5f9;
-}
-
-.conversation.selected {
-  background: #0f172a;
-  color: white;
-}
-
-.conversation-main {
-  flex: 1;
-  min-width: 0;
-}
-
+.conversation:hover { background: #f1f5f9; }
+.conversation.selected { background: #0f172a; color: white; }
+.conversation-main { flex: 1; min-width: 0; }
 .conversation-title {
   display: flex;
   justify-content: space-between;
   gap: 8px;
   align-items: center;
 }
-
 .conversation-title strong {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .conversation-title span {
   color: #94a3b8;
   font-size: 12px;
   flex-shrink: 0;
 }
-
 .conversation p {
   margin: 4px 0 0;
   font-size: 13px;
@@ -226,10 +205,7 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-.conversation.selected p {
-  color: #cbd5e1;
-}
+.conversation.selected p { color: #cbd5e1; }
 
 .badge {
   background: #ef4444;
@@ -244,10 +220,6 @@ button {
   padding: 0 8px;
 }
 
-.reset {
-  width: 100%;
-}
-
 .chat {
   display: flex;
   flex-direction: column;
@@ -255,7 +227,6 @@ button {
   min-height: 0;
   background: white;
 }
-
 .chat-header {
   height: 76px;
   border-bottom: 1px solid #e2e8f0;
@@ -264,17 +235,8 @@ button {
   gap: 12px;
   padding: 0 20px;
 }
-
-.chat-header h2 {
-  margin: 0;
-  font-size: 18px;
-}
-
-.chat-header p {
-  margin: 4px 0 0;
-  color: #64748b;
-  font-size: 13px;
-}
+.chat-header h2 { margin: 0; font-size: 18px; }
+.chat-header p { margin: 4px 0 0; color: #64748b; font-size: 13px; }
 
 .messages {
   flex: 1;
@@ -283,25 +245,29 @@ button {
   padding: 22px;
   background: linear-gradient(#f8fafc, #ffffff);
 }
-
+.empty-chat-tip {
+  width: fit-content;
+  margin: 20px auto;
+  color: #64748b;
+  background: #e2e8f0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+}
 .message-row {
   display: flex;
   align-items: flex-end;
   gap: 8px;
   margin-bottom: 16px;
 }
-
-.message-row.mine {
-  justify-content: flex-end;
-}
-
+.message-row.mine { justify-content: flex-end; }
+.message-content { max-width: min(560px, 72vw); }
 .sender-name {
   font-size: 12px;
   color: #64748b;
   margin: 0 0 4px 4px;
   font-weight: 700;
 }
-
 .bubble {
   max-width: 560px;
   background: white;
@@ -312,24 +278,28 @@ button {
   white-space: pre-wrap;
   word-break: break-word;
 }
-
 .bubble.mine {
   background: #0f172a;
   color: white;
   border: 0;
   border-radius: 20px 20px 6px 20px;
 }
-
+.chat-image {
+  display: block;
+  max-width: min(320px, 70vw);
+  max-height: 360px;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  object-fit: contain;
+}
+.chat-image.mine { border-color: #0f172a; }
 .time {
   font-size: 12px;
   color: #94a3b8;
   margin-top: 4px;
 }
-
-.message-row.mine .time {
-  text-align: right;
-}
-
+.message-row.mine .time { text-align: right; }
 .system-message {
   width: fit-content;
   margin: 14px auto;
@@ -346,7 +316,6 @@ button {
   display: flex;
   gap: 10px;
 }
-
 .composer textarea {
   flex: 1;
   resize: none;
@@ -357,8 +326,7 @@ button {
   max-height: 130px;
   outline: none;
 }
-
-.composer button, .login-button {
+.send-button, .login-button {
   border: 0;
   background: #0f172a;
   color: white;
@@ -369,6 +337,15 @@ button {
   gap: 8px;
   font-weight: 800;
 }
+.image-button {
+  border: 1px solid #e2e8f0;
+  background: white;
+  width: 48px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 
 .empty {
   height: 100%;
@@ -377,7 +354,6 @@ button {
   color: #94a3b8;
   text-align: center;
 }
-
 .members {
   min-height: 0;
   overflow: auto;
@@ -385,16 +361,7 @@ button {
   background: #f8fafc;
   padding: 16px;
 }
-
-.members h3 {
-  margin: 0 0 12px;
-}
-
-.members button {
-  width: 100%;
-  margin-bottom: 12px;
-}
-
+.members h3 { margin: 0 0 12px; }
 .member {
   display: flex;
   gap: 10px;
@@ -405,7 +372,6 @@ button {
   padding: 10px;
   margin-bottom: 8px;
 }
-
 .member p {
   margin: 4px 0 0;
   font-size: 12px;
@@ -418,41 +384,24 @@ button {
   place-items: center;
   padding: 20px;
 }
-
 .login-card {
-  width: min(440px, 100%);
+  width: min(460px, 100%);
   background: white;
   border-radius: 28px;
   overflow: hidden;
   box-shadow: 0 20px 60px rgba(15, 23, 42, 0.18);
 }
-
 .login-top {
   background: #0f172a;
   color: white;
   padding: 32px;
 }
-
-.login-top h1 {
-  margin: 12px 0 6px;
-}
-
-.login-top p {
-  margin: 0;
-  color: #cbd5e1;
-  line-height: 1.6;
-}
-
-.login-card > label,
-.login-card > input,
-.login-card > button,
-.login-card > .hint,
-.login-card > .connection,
-.login-card > .error {
+.login-top h1 { margin: 12px 0 6px; }
+.login-top p { margin: 0; color: #cbd5e1; line-height: 1.6; }
+.login-card > label, .login-card > input, .login-card > button, .login-card > .hint, .login-card > .connection, .login-card > .error {
   margin-left: 28px;
   margin-right: 28px;
 }
-
 .connection {
   margin-top: 24px;
   display: flex;
@@ -462,26 +411,22 @@ button {
   padding: 10px 12px;
   font-weight: 700;
 }
-
 .ok-box {
   background: #ecfdf5;
   color: #047857;
   border: 1px solid #a7f3d0;
 }
-
 .bad-box {
   background: #fffbeb;
   color: #b45309;
   border: 1px solid #fde68a;
 }
-
 .login-card label {
   display: block;
   margin-top: 18px;
   margin-bottom: 8px;
   font-weight: 700;
 }
-
 .login-card input {
   width: calc(100% - 56px);
   border: 1px solid #e2e8f0;
@@ -489,19 +434,12 @@ button {
   padding: 12px 14px;
   outline: none;
 }
-
 .login-button {
   width: calc(100% - 56px);
   height: 48px;
   justify-content: center;
-  margin-top: 16px;
+  margin-top: 18px;
 }
-
-.login-button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
 .hint {
   color: #64748b;
   font-size: 12px;
@@ -510,25 +448,11 @@ button {
 }
 
 @media (max-width: 1000px) {
-  .app {
-    grid-template-columns: 320px 1fr;
-  }
-
-  .members {
-    display: none;
-  }
+  .app { grid-template-columns: 320px 1fr; }
+  .members { display: none; }
 }
-
 @media (max-width: 760px) {
-  .app {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    height: 45vh;
-  }
-
-  .chat {
-    height: 55vh;
-  }
+  .app { grid-template-columns: 1fr; }
+  .sidebar { height: 45vh; }
+  .chat { height: 55vh; }
 }

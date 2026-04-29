@@ -5,6 +5,6 @@ export default defineConfig({
   plugins: [react()],
   preview: {
     host: "0.0.0.0",
-    allowedHosts: ["clint-production-45e8.up.railway.app"],
-  },
+    allowedHosts: true
+  }
 });
