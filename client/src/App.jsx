@@ -1,8 +1,23 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { MessageCircle, Send, Users, Plus, LogOut, Wifi, WifiOff, Search, RotateCcw, UserPlus, Image as ImageIcon, X } from "lucide-react";
+import {
+  MessageCircle,
+  Send,
+  Users,
+  Plus,
+  LogOut,
+  Wifi,
+  WifiOff,
+  Search,
+  UserPlus,
+  Image as ImageIcon,
+  X
+} from "lucide-react";
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || `${window.location.protocol}//${window.location.hostname}:4000`;
+const SOCKET_URL =
+  import.meta.env.VITE_SOCKET_URL ||
+  `${window.location.protocol}//${window.location.hostname}:4000`;
+
 const NICKNAME_KEY = "minichat-nickname";
 
 function getUserById(id, users, currentUser) {
@@ -13,7 +28,9 @@ function getUserById(id, users, currentUser) {
 
 function getConversationTitle(conversation, users, currentUser) {
   if (!conversation) return "";
+
   if (conversation.type === "group") return conversation.title;
+
   const otherId = conversation.memberIds.find((id) => id !== currentUser?.id);
   return getUserById(otherId, users, currentUser)?.name || "私聊";
 }
@@ -52,7 +69,12 @@ export default function App() {
   const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
-    const socket = io(SOCKET_URL, { reconnection: true, reconnectionDelay: 500, reconnectionDelayMax: 3000 });
+    const socket = io(SOCKET_URL, {
+      reconnection: true,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 3000
+    });
+
     socketRef.current = socket;
 
     socket.on("connect", () => {
@@ -60,7 +82,9 @@ export default function App() {
       setError("");
     });
 
-    socket.on("disconnect", () => setConnected(false));
+    socket.on("disconnect", () => {
+      setConnected(false);
+    });
 
     socket.on("connect_error", () => {
       setConnected(false);
@@ -71,13 +95,18 @@ export default function App() {
       setCurrentUser(currentUser);
       setState(state);
       localStorage.setItem(NICKNAME_KEY, currentUser.name);
-      setActiveId(state.conversations.find((c) => c.memberIds.includes(currentUser.id))?.id || "");
+      setActiveId(state.conversations.find((item) => item.memberIds.includes(currentUser.id))?.id || "");
       setLoginMessage("");
       setError("");
     });
 
-    socket.on("login_error", (message) => setLoginMessage(message));
-    socket.on("chat_state", (newState) => setState(newState));
+    socket.on("login_error", (message) => {
+      setLoginMessage(message);
+    });
+
+    socket.on("chat_state", (newState) => {
+      setState(newState);
+    });
 
     socket.on("conversation_created", ({ conversationId }) => {
       setActiveId(conversationId);
@@ -87,12 +116,12 @@ export default function App() {
       setTargetName("");
     });
 
-    socket.on("error_message", (message) => setError(message));
+    socket.on("error_message", (message) => {
+      setError(message);
+    });
 
     return () => socket.disconnect();
   }, []);
-
-  const activeConversation = state.conversations.find((item) => item.id === activeId);
 
   const conversations = useMemo(() => {
     return state.conversations
@@ -101,12 +130,15 @@ export default function App() {
         const lastMessage = conversation.messages.at(-1);
         const lastSender = getUserById(lastMessage?.sender, state.users, currentUser);
         const title = getConversationTitle(conversation, state.users, currentUser);
+
         return { ...conversation, title, lastMessage, lastSender };
       })
       .filter((conversation) => filter === "all" || conversation.type === filter)
       .filter((conversation) => {
         if (!keyword.trim()) return true;
+
         const k = keyword.trim().toLowerCase();
+
         return (
           conversation.title.toLowerCase().includes(k) ||
           conversation.description?.toLowerCase().includes(k) ||
@@ -117,14 +149,21 @@ export default function App() {
       .sort((a, b) => Number(b.pinned) - Number(a.pinned));
   }, [state, currentUser, keyword, filter]);
 
+  const activeConversation = state.conversations.find((item) => item.id === activeId);
+
   const members = useMemo(() => {
     if (!activeConversation) return [];
-    return activeConversation.memberIds.map((id) => getUserById(id, state.users, currentUser)).filter(Boolean);
+
+    return activeConversation.memberIds
+      .map((id) => getUserById(id, state.users, currentUser))
+      .filter(Boolean);
   }, [activeConversation, state.users, currentUser]);
 
   useEffect(() => {
-    if (!activeConversation && conversations[0]) setActiveId(conversations[0].id);
-  }, [activeConversation, conversations]);
+    if ((!activeConversation || !activeConversation.memberIds.includes(currentUser?.id)) && conversations[0]) {
+      setActiveId(conversations[0].id);
+    }
+  }, [activeConversation, conversations, currentUser]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -135,6 +174,7 @@ export default function App() {
       setLoginMessage("后端未连接。请先确认 server 已经部署成功。");
       return;
     }
+
     socketRef.current.emit("login", { name, password });
   }
 
@@ -152,35 +192,54 @@ export default function App() {
 
   function sendMessage() {
     const text = draft.trim();
+
     if (!text || !activeConversation) return;
-    socketRef.current.emit("send_message", { conversationId: activeConversation.id, text });
+
+    socketRef.current.emit("send_message", {
+      conversationId: activeConversation.id,
+      text
+    });
+
     setDraft("");
   }
 
   function createGroup() {
-    if (!newGroupName.trim()) {
+    const title = newGroupName.trim();
+
+    if (!title) {
       setError("群聊名称不能为空。");
       return;
     }
-    socketRef.current.emit("create_group", { title: newGroupName.trim(), description: "用户创建的群聊" });
+
+    socketRef.current.emit("create_group", {
+      title,
+      description: "用户创建的群聊"
+    });
   }
 
   function createPrivate() {
-    if (!targetName.trim()) {
+    const name = targetName.trim();
+
+    if (!name) {
       setError("请输入对方昵称。");
       return;
     }
-    socketRef.current.emit("create_private", { targetName: targetName.trim() });
+
+    socketRef.current.emit("create_private", {
+      targetName: name
+    });
   }
 
-  function chooseImage() {
+  function handleImageButtonClick() {
     if (!activeConversation) return;
     fileInputRef.current?.click();
   }
 
   function handleImageSelected(event) {
     const file = event.target.files?.[0];
+
     event.target.value = "";
+
     if (!file || !activeConversation) return;
 
     if (!file.type.startsWith("image/")) {
@@ -194,6 +253,7 @@ export default function App() {
     }
 
     setUploadingImage(true);
+
     const reader = new FileReader();
 
     reader.onload = () => {
@@ -202,6 +262,7 @@ export default function App() {
         imageData: reader.result,
         fileName: file.name
       });
+
       setUploadingImage(false);
     };
 
@@ -214,7 +275,14 @@ export default function App() {
   }
 
   if (!currentUser) {
-    return <Login connected={connected} error={error} loginMessage={loginMessage} onLogin={login} />;
+    return (
+      <Login
+        connected={connected}
+        error={error}
+        loginMessage={loginMessage}
+        onLogin={login}
+      />
+    );
   }
 
   return (
@@ -229,36 +297,58 @@ export default function App() {
               {connected ? "已联网" : "未连接"}
             </span>
           </div>
-          <button className="icon-btn" onClick={logout} title="退出登录"><LogOut size={18} /></button>
+          <button className="icon-btn" onClick={logout} title="退出登录">
+            <LogOut size={18} />
+          </button>
         </header>
 
         {error && (
           <div className="error">
             {error}
-            <button onClick={() => setError("")}><X size={14} /></button>
+            <button onClick={() => setError("")}>
+              <X size={14} />
+            </button>
           </div>
         )}
 
         <div className="search">
           <Search size={16} />
-          <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索会话或消息" />
+          <input
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+            placeholder="搜索会话或消息"
+          />
         </div>
 
         <div className="filters">
-          <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>全部</button>
-          <button className={filter === "private" ? "active" : ""} onClick={() => setFilter("private")}>私聊</button>
-          <button className={filter === "group" ? "active" : ""} onClick={() => setFilter("group")}>群聊</button>
+          <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>
+            全部
+          </button>
+          <button className={filter === "private" ? "active" : ""} onClick={() => setFilter("private")}>
+            私聊
+          </button>
+          <button className={filter === "group" ? "active" : ""} onClick={() => setFilter("group")}>
+            群聊
+          </button>
         </div>
 
         <div className="actions">
-          <button onClick={() => setShowNewGroup(true)}><Plus size={16} /> 新建群聊</button>
-          <button onClick={() => setShowPrivate(true)}><UserPlus size={16} /> 新建私聊</button>
+          <button onClick={() => setShowNewGroup(true)}>
+            <Plus size={16} /> 新建群聊
+          </button>
+          <button onClick={() => setShowPrivate(true)}>
+            <UserPlus size={16} /> 新建私聊
+          </button>
         </div>
 
         {showNewGroup && (
           <div className="mini-panel">
             <label>群聊名称</label>
-            <input value={newGroupName} onChange={(event) => setNewGroupName(event.target.value)} placeholder="例如：高数讨论群" />
+            <input
+              value={newGroupName}
+              onChange={(event) => setNewGroupName(event.target.value)}
+              placeholder="例如：高数讨论群"
+            />
             <div className="mini-panel-buttons">
               <button onClick={createGroup}>创建</button>
               <button onClick={() => setShowNewGroup(false)}>取消</button>
@@ -269,7 +359,11 @@ export default function App() {
         {showPrivate && (
           <div className="mini-panel">
             <label>对方昵称</label>
-            <input value={targetName} onChange={(event) => setTargetName(event.target.value)} placeholder="必须是已注册昵称" />
+            <input
+              value={targetName}
+              onChange={(event) => setTargetName(event.target.value)}
+              placeholder="必须是已注册昵称"
+            />
             <div className="mini-panel-buttons">
               <button onClick={createPrivate}>创建</button>
               <button onClick={() => setShowPrivate(false)}>取消</button>
@@ -280,9 +374,21 @@ export default function App() {
         <div className="conversation-list">
           {conversations.map((conversation) => {
             const unread = getUnread(conversation, currentUser);
+
             return (
-              <button key={conversation.id} className={`conversation ${conversation.id === activeId ? "selected" : ""}`} onClick={() => selectConversation(conversation.id)}>
-                <Avatar group={conversation.type === "group"} user={getUserById(conversation.memberIds.find((id) => id !== currentUser.id), state.users, currentUser)} />
+              <button
+                key={conversation.id}
+                className={`conversation ${conversation.id === activeId ? "selected" : ""}`}
+                onClick={() => selectConversation(conversation.id)}
+              >
+                <Avatar
+                  group={conversation.type === "group"}
+                  user={getUserById(
+                    conversation.memberIds.find((id) => id !== currentUser.id),
+                    state.users,
+                    currentUser
+                  )}
+                />
                 <div className="conversation-main">
                   <div className="conversation-title">
                     <strong>{conversation.title}</strong>
@@ -305,29 +411,38 @@ export default function App() {
             );
           })}
         </div>
-
-        <button className="reset" onClick={() => socketRef.current.emit("reset_demo")}>
-          <RotateCcw size={16} /> 清空会话数据
-        </button>
       </aside>
 
       <main className="chat">
         {activeConversation ? (
           <>
             <header className="chat-header">
-              <Avatar group={activeConversation.type === "group"} user={members.find((member) => member.id !== currentUser.id)} />
+              <Avatar
+                group={activeConversation.type === "group"}
+                user={members.find((member) => member.id !== currentUser.id)}
+              />
               <div>
                 <h2>{getConversationTitle(activeConversation, state.users, currentUser)}</h2>
-                <p>{activeConversation.type === "group" ? `${members.length} 人 · ${activeConversation.description || "暂无群公告"}` : "私聊"}</p>
+                <p>
+                  {activeConversation.type === "group"
+                    ? `${members.length} 人 · ${activeConversation.description || "暂无群公告"}`
+                    : "私聊"}
+                </p>
               </div>
             </header>
 
             <section className="messages">
-              {activeConversation.messages.length === 0 && <div className="empty-chat-tip">暂无消息，发第一条消息吧。</div>}
+              {activeConversation.messages.length === 0 && (
+                <div className="empty-chat-tip">暂无消息，发第一条消息吧。</div>
+              )}
 
               {activeConversation.messages.map((message) => {
                 if (message.sender === "system") {
-                  return <div className="system-message" key={message.id}>{message.text} · {message.time}</div>;
+                  return (
+                    <div className="system-message" key={message.id}>
+                      {message.text} · {message.time}
+                    </div>
+                  );
                 }
 
                 const isMe = message.sender === currentUser.id;
@@ -337,11 +452,17 @@ export default function App() {
                   <div className={`message-row ${isMe ? "mine" : ""}`} key={message.id}>
                     {!isMe && <Avatar user={sender} />}
                     <div className="message-content">
-                      {activeConversation.type === "group" && !isMe && <div className="sender-name">{sender?.name}</div>}
+                      {activeConversation.type === "group" && !isMe && (
+                        <div className="sender-name">{sender?.name}</div>
+                      )}
 
                       {message.type === "image" ? (
                         <a href={message.imageData} target="_blank" rel="noreferrer">
-                          <img className={`chat-image ${isMe ? "mine" : ""}`} src={message.imageData} alt={message.fileName || "image"} />
+                          <img
+                            className={`chat-image ${isMe ? "mine" : ""}`}
+                            src={message.imageData}
+                            alt={message.fileName || "image"}
+                          />
                         </a>
                       ) : (
                         <div className={`bubble ${isMe ? "mine" : ""}`}>{message.text}</div>
@@ -358,8 +479,18 @@ export default function App() {
             </section>
 
             <footer className="composer">
-              <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden onChange={handleImageSelected} />
-              <button className="image-button" onClick={chooseImage} disabled={uploadingImage}><ImageIcon size={18} /></button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                hidden
+                onChange={handleImageSelected}
+              />
+
+              <button className="image-button" onClick={handleImageButtonClick} disabled={uploadingImage}>
+                <ImageIcon size={18} />
+              </button>
+
               <textarea
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
@@ -371,11 +502,17 @@ export default function App() {
                 }}
                 placeholder="输入消息，按 Enter 发送，Shift + Enter 换行"
               />
-              <button className="send-button" onClick={sendMessage}><Send size={18} />发送</button>
+
+              <button className="send-button" onClick={sendMessage}>
+                <Send size={18} />发送
+              </button>
             </footer>
           </>
         ) : (
-          <div className="empty"><MessageCircle size={64} /><p>请选择一个会话</p></div>
+          <div className="empty">
+            <MessageCircle size={64} />
+            <p>请选择一个会话</p>
+          </div>
         )}
       </main>
 
@@ -385,7 +522,10 @@ export default function App() {
           {members.map((member) => (
             <div className="member" key={member.id}>
               <Avatar user={member} />
-              <div><strong>{member.name}</strong><p>{member.bio}</p></div>
+              <div>
+                <strong>{member.name}</strong>
+                <p>{member.bio}</p>
+              </div>
             </div>
           ))}
         </aside>
@@ -416,7 +556,11 @@ function Login({ connected, error, loginMessage, onLogin }) {
         {loginMessage && <div className="error plain">{loginMessage}</div>}
 
         <label>昵称</label>
-        <input value={name} onChange={(event) => setName(event.target.value)} placeholder="请输入昵称" />
+        <input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="请输入昵称"
+        />
 
         <label>密码</label>
         <input
@@ -425,12 +569,23 @@ function Login({ connected, error, loginMessage, onLogin }) {
           type="password"
           placeholder="首次使用即初始化密码，至少 4 位"
           onKeyDown={(event) => {
-            if (event.key === "Enter") onLogin(name, password);
+            if (event.key === "Enter") {
+              onLogin(name, password);
+            }
           }}
         />
 
-        <button className="login-button" disabled={!connected} onClick={() => onLogin(name, password)}>进入聊天</button>
-        <p className="hint">当前账号和消息仍保存在服务器内存里。服务器重启后会清空。接数据库后才能永久保存。</p>
+        <button
+          className="login-button"
+          disabled={!connected}
+          onClick={() => onLogin(name, password)}
+        >
+          进入聊天
+        </button>
+
+        <p className="hint">
+          当前版本使用 PostgreSQL 保存账号、群聊和消息。图片暂时以 base64 形式保存，后续建议改为对象存储。
+        </p>
       </div>
     </div>
   );
